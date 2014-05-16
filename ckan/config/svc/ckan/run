@@ -1,0 +1,39 @@
+#!/bin/sh
+exec 2>&1
+
+set -e
+
+SOLR_HOST=${SOLR_1_PORT_8983_TCP_ADDR}
+DB_HOST=${DB_1_PORT_5432_TCP_ADDR}
+DB_USER=${DB_1_ENV_POSTGRESQL_USER}
+DB_PASS=${DB_1_ENV_POSTGRESQL_PASS}
+DB_DB=${DB_1_ENV_POSTGRESQL_DB}
+
+CKAN_CONFIG=/etc/ckan/default/ckan.ini
+
+bootstrap_dev () {
+  "$CKANHOME"/bin/paster make-config ckan "$CKAN_CONFIG"
+
+  sed -i \
+      -e "s&^sqlalchemy\.url =.*&sqlalchemy.url = postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}/${DB_DB}&" \
+      -e "s&^#solr_url.*&solr_url = http://${SOLR_HOST}:8983/solr/ckan_default&" \
+      "$CKAN_CONFIG"
+
+  echo "Sleeping 30s for Solr..."
+  sleep 30
+
+  cd "$CKANHOME"/src/ckan && "$CKANHOME"/bin/paster db init -c "$CKAN_CONFIG"
+}
+
+# Skip bootstrap if we already have a config file
+if [ -n "$CKAN_DEVELOPMENT_MODE" -a ! -e /etc/ckan/default/ckan.ini ]; then
+  bootstrap_dev
+fi
+
+# If we don't have a config file at this stage, it's all gone wrong
+if [ ! -e /etc/ckan/default/ckan.ini ]; then
+  echo "ERROR: no ckan config file supplied at /etc/ckan/default/ckan.ini"
+  exit 1
+fi
+
+exec "$CKANHOME"/bin/paster serve "$CKAN_CONFIG" http_port=80

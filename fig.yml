@@ -1,0 +1,21 @@
+ckan:
+  build: .
+  ports:
+    - "49094:5000"
+  links:
+    - db
+    - solr
+  environment:
+    CKAN_DEVELOPMENT_MODE: true
+db:
+  image: orchardup/postgresql
+  ports:
+    - 5432
+  environment:
+    POSTGRESQL_USER: ckan_default
+    POSTGRESQL_PASS: ckan_default
+    POSTGRESQL_DB: ckan_default
+solr:
+  build: ckan/config/solr
+  ports:
+    - 8983
